@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+python-multipart
+pydantic
+transformers
+torch
+numpy
+pypdf2
+scikit-learn
+
+fastapi
+uvicorn
+python-multipart
+PyPDF2
+docx2txt
+spacy
+jsonschema
