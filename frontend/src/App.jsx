@@ -1,183 +1,136 @@
-import { useState, useEffect, useRef } from 'react'
-import ExportPDF from './components/ExportPDF'
-import CompareView from './components/CompareView'
+import { useState } from 'react'
 import ResultDisplay from './components/ResultDisplay'
+import CompareView from './components/CompareView'
+import ExportPDF from './components/ExportPDF'
 
-function App() {
+export default function App() {
   const [result, setResult] = useState(null)
   const [compareMode, setCompareMode] = useState(false)
   const [doc1, setDoc1] = useState(null)
   const [doc2, setDoc2] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [textInput, setTextInput] = useState('')
-  const [fileInput, setFileInput] = useState(null)
+  const [text, setText] = useState('')
 
-  const debounceRef = useRef(null)
-
-  // Debounced text analysis
-  useEffect(() => {
-    if (!textInput.trim() || textInput.length < 50) {
-      setResult(null)
-      return
-    }
-
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true)
-      try {
-        const res = await fetch('/api/detect-text', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: textInput })
-        })
-        const data = await res.json()
-        if (!data.error) setResult(data)
-      } catch (err) {
-        console.error("Analysis failed:", err)
-      } finally {
-        setLoading(false)
-      }
-    }, 800) // 800ms delay after user stops typing
-  }, [textInput])
-
-  // File analysis
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    setFileInput(file)
+  const analyzeText = async () => {
+    if (!text.trim()) return
     setLoading(true)
-
-    const form = new FormData()
-    form.append('file', file)
-
     try {
-      const res = await fetch('/api/detect', { method: 'POST', body: form })
+      const res = await fetch('/api/detect-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      })
       const data = await res.json()
-
       if (compareMode) {
         if (!doc1) setDoc1(data)
-        else if (!doc2) setDoc2(data)
+        else setDoc2(data)
       } else {
         setResult(data)
       }
-    } catch (err) {
-      alert("File analysis failed")
+    } catch (e) {
+      alert("Backend not running on port 8000")
     } finally {
       setLoading(false)
     }
   }
 
-  const resetCompare = () => {
-    setCompareMode(true)
-    setDoc1(null)
-    setDoc2(null)
-    setResult(null)
-    setTextInput('')
-    setFileInput(null)
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLoading(true)
+    const form = new FormData()
+    form.append('file', file)
+    try {
+      const res = await fetch('/api/detect', { method: 'POST', body: form })
+      const data = await res.json()
+      if (compareMode) {
+        if (!doc1) setDoc1(data)
+        else setDoc2(data)
+      } else {
+        setResult(data)
+      }
+    } catch (e) {
+      alert("Upload failed")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-black text-white py-10">
-      <div className="container mx-auto px-6 max-w-7xl">
-
+    <div className="min-h-screen py-10">
+      <div className="max-w-7xl mx-auto px-6">
         {/* Header */}
-        <header className="text-center mb-12">
-          <h1 className="text-6xl md:text-7xl font-black bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-            AI Detector Pro
-          </h1>
-          <p className="mt-4 text-xl text-gray-300">Detect AI text • Word-level highlights • Export & Compare</p>
+        <h1 className="text-6xl md:text-8xl font-black text-center mb-8 bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
+          AI Detector Pro
+        </h1>
+        <p className="text-center text-xl mb-12 text-gray-300">
+          Word-level AI detection • Fake reference checker • PDF export • Document comparison
+        </p>
 
-          <div className="mt-10 flex justify-center gap-6 flex-wrap">
-            <button
-              onClick={() => { setCompareMode(false); setDoc1(null); setDoc2(null); setResult(null); }}
-              className={`px-10 py-4 rounded-2xl text-xl font-bold transition-all ${!compareMode ? 'bg-purple-600 shadow-lg scale-105' : 'bg-gray-700 hover:bg-gray-600'}`}
-            >
-              Single Analysis
-            </button>
-            <button
-              onClick={resetCompare}
-              className={`px-10 py-4 rounded-2xl text-xl font-bold transition-all ${compareMode ? 'bg-purple-600 shadow-lg scale-105' : 'bg-gray-700 hover:bg-gray-600'}`}
-            >
-              Compare Two Documents
-            </button>
-          </div>
-        </header>
+        {/* Mode Toggle */}
+        <div className="flex justify-center gap-8 mb-12">
+          <button
+            onClick={() => { setCompareMode(false); setResult(null); setDoc1(null); setDoc2(null); }}
+            className={`px-10 py-4 rounded-2xl text-2xl font-bold transition-all ${!compareMode ? 'bg-purple-600 shadow-2xl scale-105' : 'bg-gray-800'}`}
+          >
+            Single Analysis
+          </button>
+          <button
+            onClick={() => { setCompareMode(true); setResult(null); setDoc1(null); setDoc2(null); }}
+            className={`px-10 py-4 rounded-2xl text-2xl font-bold transition-all ${compareMode ? 'bg-purple-600 shadow-2xl scale-105' : 'bg-gray-800'}`}
+          >
+            Compare Documents
+          </button>
+        </div>
 
-        {/* Input Section */}
-        <div className="grid lg:grid-cols-2 gap-10 mb-12">
-          {/* Text Input */}
-          <div className="bg-black/40 backdrop-blur-lg rounded-3xl p-8 border border-purple-800/50">
-            <h2 className="text-3xl font-bold mb-6 flex items-center gap-3">
-              Paste Text {textInput.length > 0 && <span className="text-sm text-gray-400">({textInput.length} chars)</span>}
-            </h2>
+        {/* Input Grid */}
+        <div className="grid lg:grid-cols-2 gap-10 mb-16">
+          <div className="bg-black/40 backdrop-blur-lg rounded-3xl p-10 border border-purple-800/50">
+            <h2 className="text-4xl font-bold mb-6">Paste Text</h2>
             <textarea
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              placeholder="Start typing or paste your text here... (Analysis starts automatically after 50 characters)"
-              className="w-full h-80 bg-black/60 border border-purple-700 rounded-2xl p-6 text-lg resize-none focus:outline-none focus:border-purple-400 transition"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Paste your research paper here..."
+              className="w-full h-96 bg-black/60 border border-purple-700 rounded-2xl p-8 text-lg resize-none focus:outline-none focus:border-purple-400 transition"
             />
-            {textInput.length > 0 && textInput.length < 50 && (
-              <p className="mt-4 text-yellow-400 text-center">Keep typing... ({50 - textInput.length} more characters needed)</p>
-            )}
+            <button
+              onClick={analyzeText}
+              disabled={loading || !text.trim()}
+              className="mt-8 w-full py-6 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl text-3xl font-bold hover:scale-105 transition disabled:opacity-50"
+            >
+              {loading ? "Analyzing..." : "Detect AI"}
+            </button>
           </div>
 
-          {/* File Upload */}
-          <div className="bg-black/40 backdrop-blur-lg rounded-3xl p-8 border border-purple-800/50 text-center">
-            <h2 className="text-3xl font-bold mb-6">
-              Upload Document {compareMode && <span className="text-purple-400">• Doc {doc1 ? 2 : 1}</span>}
+          <div className="bg-black/40 backdrop-blur-lg rounded-3xl p-10 border border-purple-800/50 text-center">
+            <h2 className="text-4xl font-bold mb-6">
+              Upload File {compareMode && <span className="text-purple-400">• Doc {doc1 ? 2 : 1}</span>}
             </h2>
-            <div className="border-4 border-dashed border-purple-600 rounded-3xl p-16 hover:bg-purple-900/20 transition-all cursor-pointer">
-              <input
-                type="file"
-                accept=".pdf,.docx,.txt"
-                onChange={handleFileChange}
-                className="hidden"
-                id="file-upload"
-              />
-              <label htmlFor="file-upload" className="cursor-pointer">
-                <div className="text-8xl mb-6">Upload</div>
-                <p className="text-2xl text-gray-300">PDF • DOCX • TXT</p>
-                <p className="mt-6 text-purple-400 text-lg">
-                  {fileInput ? fileInput.name : "Click or drop file here"}
-                </p>
-              </label>
-            </div>
-            {fileInput && (
-              <button
-                onClick={() => { setFileInput(null); document.getElementById('file-upload').value = '' }}
-                className="mt-6 text-red-400 hover:text-red-300"
-              >
-                Clear file
-              </button>
-            )}
+            <input
+              type="file"
+              accept=".pdf,.docx,.txt"
+              onChange={handleFile}
+              className="text-2xl file:mr-8 file:py-6 file:px-12 file:rounded-2xl file:bg-purple-600 file:text-white hover:file:bg-purple-700"
+            />
           </div>
         </div>
 
-        {/* Loading */}
+        {/* Loading & Results */}
         {loading && (
           <div className="text-center py-20">
-            <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-purple-500"></div>
-            <p className="mt-6 text-3xl">Analyzing content...</p>
+            <div className="inline-block animate-spin rounded-full h-20 w-20 border-t-4 border-purple-500"></div>
+            <p className="mt-8 text-4xl">Analyzing text & checking references...</p>
           </div>
         )}
 
-        {/* Results */}
         {compareMode && doc1 && doc2 && <CompareView doc1={doc1} doc2={doc2} />}
-        {result && !compareMode && !loading && (
-          <div id="result-container" className="relative">
+        {result && !compareMode && (
+          <div id="result-container">
             <ResultDisplay result={result} />
             <ExportPDF />
           </div>
         )}
-
-        {/* Footer */}
-        <footer className="text-center mt-20 text-gray-500">
-          <p>Advanced AI detection with word-level highlighting • Built with Vite + FastAPI</p>
-        </footer>
       </div>
     </div>
   )
 }
-
-export default App
